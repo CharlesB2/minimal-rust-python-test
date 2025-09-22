@@ -30,12 +30,16 @@ jobs:
         python-version: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v5
+      - name: echo
+        run: |
+          echo "path: $PATH"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: echo
         run: |
+          echo "path: $PATH"
           echo "Runner: ${{ matrix.runner }}"
           echo "OS: ${{ matrix.os }}"
           if [ -n "${{ matrix.target }}" ]; then
