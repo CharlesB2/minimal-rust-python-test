@@ -26,13 +26,21 @@ jobs:
           - runner: ubuntu-latest
             os: alpine
             container: alpine:latest
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+#        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: echo
+        run: |
+          echo "Runner: ${{ matrix.runner }}"
+          echo "Arch: ${{ matrix.os }}"
+          if [ -n "${{ matrix.target }}" ]; then
+            echo "Target: ${{ matrix.target }}"
+          fi
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -65,7 +73,8 @@ jobs:
           - runner: ubuntu-latest
             arch: arm64
             target: aarch64-unknown-linux-musl
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+#        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -136,7 +145,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python3 -m pip install --upgrade pip
           pip install maturin[zig] twine
       - name: Install musl tools
         if: matrix.target && contains(matrix.target, 'musl')
