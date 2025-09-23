@@ -1,14 +1,22 @@
 [package]
-name = "minimal_rust_python"
-version = "0.1.0"
+name = "fastuuid"
+version = "0.12.0"
 edition = "2021"
 
 [lib]
-name = "minimal_rust_python"
+name = "fastuuid"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
+rand = "0.8"
+
+[dependencies.pyo3]
+version = "0.22"
+features = ["extension-module"]
+
+[dependencies.uuid]
+version = "1"
+features = ["v1", "v3", "v4", "v5", "v7"]
 
 [profile.release]
 lto = "fat"
