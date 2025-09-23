@@ -36,7 +36,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.conf.python-architecture }}
       - name: Build wheel
         if: !startsWith(matrix.conf.manylinux, 'musl')
         uses: PyO3/maturin-action@v1
