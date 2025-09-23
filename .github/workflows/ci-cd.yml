@@ -36,15 +36,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Build wheel
-        if: !startsWith(matrix.conf.manylinux, 'musl')
+          architecture: ${{ matrix.conf.python-architecture }}
+      - name: Build wheel not musl
+        if: matrix.conf.manylinux && !startsWith(matrix.conf.manylinux, 'musl')
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.conf.target }}
           manylinux: ${{ matrix.conf.manylinux }}
           args: -i ${{ matrix.python-version }} --release --auditwheel check
-      - name: Build wheel -usl
-        if: startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target != 'source'
+      - name: Build wheel musl
+        if: matrix.conf.manylinux && startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target != 'source'
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.conf.target }}
