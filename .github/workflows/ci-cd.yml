@@ -16,20 +16,20 @@ jobs:
       matrix:
         python-version: ['3.12']
         conf:
-          - { os: ubuntu-latest, target: source }
-          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-gnu,             manylinux: auto }
-          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-musl,            manylinux: musllinux_1_1 }
-          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-gnu,               manylinux: auto }
-          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-musl,              manylinux: musllinux_1_1 }
-          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-gnu,            manylinux: auto }
-          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-musl,           manylinux: musllinux_1_1 }
+          - { os: ubuntu-latest }
+          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-gnu,             manylinux: auto, auditwheel: check }
+          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-musl,            manylinux: musllinux_1_1, auditwheel: repair }
+          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-gnu,               manylinux: auto, auditwheel: check }
+          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-musl,              manylinux: musllinux_1_1, auditwheel: repair }
+          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-gnu,            manylinux: auto, auditwheel: check }
+          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-musl,           manylinux: musllinux_1_1, auditwheel: repair }
 
-          - { os: macos-13, target: x86_64,     target-triple: x86_64-apple-darwin }
-          - { os: macos-13, target: aarch64,    target-triple: aarch64-apple-darwin }
-          - { os: macos-13, target: universal2, target-triple: x86_64-apple-darwin }
+          - { os: macos-13, target: x86_64,     target-triple: x86_64-apple-darwin, auditwheel: check }
+          - { os: macos-13, target: aarch64,    target-triple: aarch64-apple-darwin, auditwheel: check }
+          - { os: macos-13, target: universal2, target-triple: x86_64-apple-darwin, auditwheel: check }
 
-          - { os: windows-latest, target: x86_64, target-triple: x86_64-pc-windows-msvc, python-architecture: x64 }
-          - { os: windows-latest, target: i686,   target-triple: i686-pc-windows-msvc,   python-architecture: x86 }
+          - { os: windows-latest, target: x86_64, target-triple: x86_64-pc-windows-msvc, python-architecture: x64, auditwheel: check }
+          - { os: windows-latest, target: i686,   target-triple: i686-pc-windows-msvc,   python-architecture: x86, auditwheel: check }
 
     steps:
       - uses: actions/checkout@v5
@@ -37,28 +37,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.conf.python-architecture }}
-      - name: Build wheel not musl
-        if: (runner.os == 'ubuntu-latest' && !startsWith(matrix.conf.manylinux, 'musl') || runner.os != 'ubuntu-latest')
+      - name: Build wheel
+        if: matrix.conf.auditwheel && matrix.conf.target
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.conf.target }}
           manylinux: ${{ matrix.conf.manylinux }}
-          args: -i ${{ matrix.python-version }} --release --auditwheel check
-      - name: Build wheel musl
-        if: runner.os == 'ubuntu-latest' && startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target != 'source'
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.conf.target }}
-          manylinux: ${{ matrix.conf.manylinux }}
-          args: -i ${{ matrix.python-version }} --release --auditwheel repair
+          args: -i ${{ matrix.python-version }} --release --auditwheel {{ $matrix.conf.auditwheel }}
       - name: Build wheels for older linux versions
-        if: runner.os == 'ubuntu-latest' && matrix.conf.target == 'source'
+        if: matrix.conf.target == ''
         # Build a wheel for the current python version in release mode
         # When running on linux, use zig to build the oldest possible manylinux wheel
         # In addition, check the wheel with auditwheel, but without auto-repair
         run: maturin build --release --compatibility --zig --auditwheel check
       - name: Build sdistx
-        if: runner.os == 'ubuntu-latest' && matrix.conf.target == 'source' && matrix.python-version == '3.9'
+        if: matrix.conf.target == ''
         run: maturin sdist
       - name: Display structure of built files
         run: ls -R target/wheels
