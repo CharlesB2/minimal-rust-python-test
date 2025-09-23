@@ -21,3 +21,6 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.8"
+dependencies = [
+    "maturin>=1.9.4",
+]
