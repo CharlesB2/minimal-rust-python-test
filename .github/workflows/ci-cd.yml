@@ -38,14 +38,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.conf.python-architecture }}
       - name: Build wheel not musl
-        if: matrix.conf.manylinux && !startsWith(matrix.conf.manylinux, 'musl')
+        if: (runner.os == 'ubuntu-latest' && !startsWith(matrix.conf.manylinux, 'musl') || runner.os != 'ubuntu-latest')
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.conf.target }}
           manylinux: ${{ matrix.conf.manylinux }}
           args: -i ${{ matrix.python-version }} --release --auditwheel check
       - name: Build wheel musl
-        if: matrix.conf.manylinux && startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target != 'source'
+        if: runner.os == 'ubuntu-latest' && startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target != 'source'
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.conf.target }}
