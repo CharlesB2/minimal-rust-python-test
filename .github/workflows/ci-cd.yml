@@ -49,7 +49,10 @@ jobs:
         # Build a wheel for the current python version in release mode
         # When running on linux, use zig to build the oldest possible manylinux wheel
         # In addition, check the wheel with auditwheel, but without auto-repair
-        run: maturin build --release --compatibility --zig --auditwheel check
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.conf.target }}
+          args: -i ${{ matrix.python-version }} --release --compatibility --zig --auditwheel check
       - name: Build sdistx
         if: matrix.conf.target == ''
         run: maturin sdist
