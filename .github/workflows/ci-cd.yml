@@ -9,113 +9,81 @@ on:
     branches: [main, master]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
-    strategy:
-      matrix:
-        include:
-          # Standard OS tests
-          - runner: ubuntu-latest
-            os: ubuntu-latest
-          - runner: windows-latest
-            os: windows-latest
-          - runner: macos-latest
-            os: macos-latest
-          # Alpine Linux (musl) tests
-#          - runner: ubuntu-latest
-#            os: alpine
-#            container: alpine:latest
-#        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
-        python-version: ['3.11', '3.12']
-    steps:
-      - uses: actions/checkout@v5
-      - name: echo
-        run: |
-          echo "path: $PATH"
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: echo
-        run: |
-          echo "path: $PATH"
-          echo "Runner: ${{ matrix.runner }}"
-          echo "OS: ${{ matrix.os }}"
-          if [ -n "${{ matrix.target }}" ]; then
-            echo "Target: ${{ matrix.target }}"
-          fi
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox==3.28.0 tox-gh-actions==2.12.0 tox-pyo3 maturin
-      - name: Run tests
-        run: tox
-
   build:
-    needs: test
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.conf.os }}
+    name: ${{ matrix.conf.os }}-${{ matrix.python-version }}-${{ matrix.conf.target-triple }}-${{ matrix.conf.target }}
     strategy:
       matrix:
-        include:
-          # AMD64 builds
-          - runner: ubuntu-latest
-            arch: amd64
-          - runner: windows-latest
-            arch: amd64
-          - runner: macos-13
-            arch: amd64
-          # ARM64 builds
-          - runner: ubuntu-latest-arm64
-            arch: arm64
-          - runner: macos-latest
-            arch: arm64
-          # MUSL builds
-          - runner: ubuntu-latest
-            arch: amd64
-            target: x86_64-unknown-linux-musl
-          - runner: ubuntu-latest
-            arch: arm64
-            target: aarch64-unknown-linux-musl
-#        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
         python-version: ['3.11', '3.12']
+        conf:
+          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-gnu,             manylinux: auto }
+          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-musl,            manylinux: musllinux_1_1 }
+          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-gnu,               manylinux: auto }
+          - { os: ubuntu-latest, target: i686,    target-triple: i686-unknown-linux-musl,              manylinux: musllinux_1_1 }
+          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-gnu,            manylinux: auto }
+          - { os: ubuntu-latest, target: aarch64, target-triple: aarch64-unknown-linux-musl,           manylinux: musllinux_1_1 }
+
+          - { os: macos-13, target: x86_64,     target-triple: x86_64-apple-darwin }
+          - { os: macos-13, target: aarch64,    target-triple: aarch64-apple-darwin }
+          - { os: macos-13, target: universal2, target-triple: x86_64-apple-darwin }
+
+          - { os: windows-latest, target: x86_64, target-triple: x86_64-pc-windows-msvc, python-architecture: x64 }
+          - { os: windows-latest, target: i686,   target-triple: i686-pc-windows-msvc,   python-architecture: x86 }
+
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install maturin[zig] twine
-      - name: Install musl tools
-        if: matrix.target && contains(matrix.target, 'musl')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools musl-dev
-          rustup target add ${{ matrix.target }}
-      - name: Build wheels
-        run: |
-          if [ -n "${{ matrix.target }}" ]; then
-            maturin build --release --target ${{ matrix.target }}
-          else
-            maturin build --release
-          fi
+          architecture: ${{ matrix.conf.python-architecture }}
+#      - name: Set MSVC developer prompt
+#        if: runner.os == 'windows-latest'
+#        uses: ilammy/msvc-dev-cmd@v1
+      - name: Build wheel (OSX - Linux)
+        if: runner.os !=  'windows-latest'
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.conf.target }}
+          manylinux: ${{ matrix.conf.manylinux }}
+          args: -i ${{ matrix.python-version }} --release --auditwheel check
       - name: Build wheels for older linux versions
-        if: runner.os == 'Linux' && !matrix.target
+        if: runner.os == 'ubuntu-latest' && !matrix.target
         # Build a wheel for the current python version in release mode
         # When running on linux, use zig to build the oldest possible manylinux wheel
         # In addition, check the wheel with auditwheel, but without auto-repair
         run: maturin build --release --compatibility --zig --auditwheel check
-      - name: Build sdist
-        if: runner.os == 'Linux' && !matrix.target && matrix.python-version == '3.9'
+      - name: Build sdistx
+        if: runner.os == 'ubuntu-latest' && !matrix.target && matrix.python-version == '3.9'
         run: maturin sdist
       - name: Display structure of built files
         run: ls -R target/wheels
 
+      # Could use 'distro: alpine_latest' in 'run-on-arch-action' but seems difficult to install a specific version of python
+      # so we'll just use existing python alpine images to test import and cli use w/o testing archs other than x86_64
+      - name: Install built wheel and Test (musllinux)
+        # TODO: python:3.13-alpine doesn't exist yet
+        if: startsWith(matrix.conf.manylinux, 'musl') && matrix.conf.target == 'x86_64' && !startsWith(matrix.python-version, '3.14')
+        run: |
+          docker run \
+            -v $(pwd)/wheels:/wheels \
+            --rm python:${{ matrix.python-version }}-alpine sh \
+              -c "pip install cramjam --no-index --find-links /wheels && python -c 'import cramjam'"
+      - name: Install built wheel and Test (Native)
+        # TODO: I'm not sure but the actual collection of tests on windows using pypy3.10 takes forever and/or fails
+        if: |
+          !startsWith(matrix.conf.manylinux, 'musl') && 
+          !( matrix.python-version == 'pypy3.10' && runner.os == 'Windows' ) &&
+          ( matrix.conf.target == 'x86_64' || matrix.conf.target == 'universal2' )
+        run: |
+          # Second install guarantees it's going to install from local dir w/ --no-index
+          # use first to get in dev dependencies
+          python -m pip install cramjam[dev] --pre --find-links wheels --force-reinstall
+          python -m pip install cramjam --pre --no-index --find-links wheels --force-reinstall
+
+          python -m pytest -vs --benchmark-skip -n0 --dist no
+
+
   build-and-publish:
-    needs: test
     runs-on: ${{ matrix.runner }}
     if: github.event_name == 'push' && contains(github.ref, '.')
     strategy:
