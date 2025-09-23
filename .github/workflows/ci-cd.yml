@@ -43,7 +43,7 @@ jobs:
         with:
           target: ${{ matrix.conf.target }}
           manylinux: ${{ matrix.conf.manylinux }}
-          args: -i ${{ matrix.python-version }} --release --auditwheel {{ $matrix.conf.auditwheel }}
+          args: -i ${{ matrix.python-version }} --release --auditwheel ${{ matrix.conf.auditwheel }}
       - name: Build wheels for older linux versions
         if: matrix.conf.target == ''
         # Build a wheel for the current python version in release mode
